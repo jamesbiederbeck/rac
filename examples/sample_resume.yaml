@@ -1,0 +1,110 @@
+person:
+  id: person_1
+  name: Jamie Rivera
+  headline: Senior Site Reliability Engineer
+  summary: SRE with a background in distributed systems and incident response.
+  contact_methods:
+    - method_type: email
+      value: jamie@example.com
+  links:
+    - label: GitHub
+      url: https://github.com/jamierivera
+  location:
+    city: Portland
+    region: OR
+    country: US
+    remote: true
+
+organizations:
+  - id: org_acme
+    name: Acme Cloud
+    type: employer
+    website: https://acme.example.com
+  - id: org_gas_station
+    name: Roadside Fuel Co
+    type: employer
+  - id: org_state_u
+    name: State University
+    type: university
+
+positions:
+  - id: pos_acme_sre
+    title: Senior SRE
+    employment_type: full_time
+    interval:
+      start: 2022-03-01
+    organization_id: org_acme
+  - id: pos_cashier
+    title: Cashier
+    employment_type: part_time
+    interval:
+      start: 2015-06-01
+      end: 2016-08-01
+    organization_id: org_gas_station
+
+claims:
+  - id: claim_mttr
+    text: Reduced mean time to recovery by 45% by redesigning the incident escalation pipeline.
+    importance: high
+    visibility: public
+    confidence: verified
+    tags: [reliability, incident-response]
+    position_id: pos_acme_sre
+    competency_ids: [comp_reliability, comp_kubernetes]
+    produced_artifact_ids: [artifact_escalation_service]
+  - id: claim_k8s_migration
+    text: Led migration of core platform services to Kubernetes.
+    importance: high
+    visibility: public
+    confidence: corroborated
+    position_id: pos_acme_sre
+    competency_ids: [comp_kubernetes]
+  - id: claim_oss_tool
+    text: Maintain an open-source CLI for Kubernetes cost analysis used by 500+ stars on GitHub.
+    importance: medium
+    visibility: public
+    confidence: claimed
+    competency_ids: [comp_kubernetes, comp_python]
+    produced_artifact_ids: [artifact_cost_cli]
+
+competencies:
+  - id: comp_reliability
+    name: Reliability Engineering
+    category: technical
+  - id: comp_kubernetes
+    name: Kubernetes
+    category: technical
+    aliases: [k8s]
+  - id: comp_python
+    name: Python
+    category: technical
+    aliases: [Python 3, CPython]
+
+artifacts:
+  - id: artifact_escalation_service
+    name: Escalation Router
+    type: internal_service
+    description: Internal service that routes incidents to on-call engineers.
+  - id: artifact_cost_cli
+    name: kube-cost-cli
+    type: open_source_repository
+    url: https://github.com/jamierivera/kube-cost-cli
+
+evidence:
+  - id: evidence_mttr_metric
+    type: metric
+    description: MTTR dropped from 62 minutes to 34 minutes over two quarters.
+    metric:
+      value: 45
+      unit: percent
+      direction: decrease
+    confidence: verified
+    claim_id: claim_mttr
+
+credentials:
+  - id: cred_degree
+    title: B.S. Computer Science
+    credential_type: degree
+    issue_date: 2015-05-15
+    organization_id: org_state_u
+    competency_ids: [comp_python]

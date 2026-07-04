@@ -1,0 +1,25 @@
+[project]
+name = "rac"
+version = "0.1.0"
+description = "Resume-as-Code: a declarative resume generation system built on the Resume Semantic Model (RSM)."
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.5",
+    "pyyaml>=6.0",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+rac = "rac.cli:app"
+
+[tool.setuptools]
+packages = ["rac", "rac.storage"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
