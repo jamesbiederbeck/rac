@@ -24,7 +24,10 @@ pytest -k overlap               # run tests matching a keyword
 
 rac init resume.yaml --name "Jane Doe"   # create a starter YAML resume
 rac validate resume.yaml                 # validate a resume file against the RSM
+rac rank resume.yaml profile.yaml        # filter + rank Claims per a build profile
 ```
+
+`rac rank` talks to a text-embedding HTTP service when a profile has a `query`; it defaults to the author's homelab instance (`http://chiclets.lan:8081`, overridable via `RAC_EMBEDDING_URL`) and is not reachable from arbitrary environments — profiles without `query` don't need it.
 
 There is no configured linter/formatter/type-checker in `pyproject.toml` — don't assume `ruff`/`mypy`/`black` are wired up unless you check first.
 
@@ -36,7 +39,10 @@ Three layers, each with a distinct responsibility and file:
 - **`rac/graph.py`** — `ResumeGraph.build(document)` turns the flat `ResumeDocument` into an index-backed view: id→entity lookups and reverse indices (claims by position, evidence by claim, etc.), plus the derived properties from RSM §10 (`claim_count_for_competency`, `reference_count_for_artifact`, `effective_confidence`). It performs no validation — it assumes the document may be invalid and builds indices anyway, deliberately, so the validator can inspect a graph built from bad data.
 - **`rac/validation.py`** — everything that requires seeing the *whole graph* rather than one entity: referential integrity (dangling `ref(Entity)` ids), global uniqueness, cardinality (at most one open-ended Position), the position-overlap rules, competency/organization normalization, orphan detection. Returns a flat `list[Issue]` tagged `Severity.ERROR` or `Severity.WARNING` — never raises. The error/warning split for each rule is spec-defined in `rsm_spec.md`, not a judgment call to make locally (e.g. overlapping positions is a warning unless both are full-time at different orgs, which is an error).
 - **`rac/storage/`** — `StorageAdapter` (`base.py`) is the abstract load/save interface; `YamlStorageAdapter` is the only implementation so far, storing the full `ResumeDocument` as one YAML file with relationships expressed as id references. Additional backends (SQLite, remote API — see `project_plan.md`) should implement the same interface without changing what a `ResumeDocument` means.
-- **`rac/cli.py`** — thin Typer CLI (`rac init`, `rac validate`) wiring the above together. Most commands listed in `rsm_spec.md`'s CLI section (`build`, `render`, `export`, `lint`, `doctor`, `search`, etc.) are not yet implemented.
+- **`rac/profile.py`** — `BuildProfile` (the filtering/weighting config from `project_plan.md`'s "Build Profiles" section: `filters.include_tags`/`exclude_tags`, `weights` keyed by Competency name, plus a `query` field for embedding-based ranking). `filter_claims` applies tag filters; `score_by_weights` is the non-embedding fallback score (Claim.importance × average matching competency weight); `apply_profile` ties both together, using embedding similarity as the primary score when `query` + an `EmbeddingProvider` are supplied. `theme`/`page_limit` are accepted (spec fields) but unused — no renderer exists yet.
+- **`rac/ranking.py`** — `rank_claims_by_query` scores Claims by cosine similarity between their text and a free-text prompt, via an `EmbeddingProvider` (deduping identical Claim text before embedding). Pure-Python cosine similarity, no numpy — vectors from the embedding service are not assumed pre-normalized.
+- **`rac/embedding.py`** — `EmbeddingProvider` is the `Protocol` consumed by `ranking.py`; `EmbeddingClient` is the concrete HTTP implementation, talking to a `/vectors`-style embeddings-proxy (default `http://chiclets.lan:8081`, override via `RAC_EMBEDDING_URL`). Tests use a fake provider (`tests/conftest.py`) instead of hitting the network.
+- **`rac/cli.py`** — thin Typer CLI (`rac init`, `rac validate`, `rac rank`) wiring the above together. Most commands listed in `rsm_spec.md`'s CLI section (`build`, `render`, `export`, `lint`, `doctor`, `search`, etc.) are not yet implemented.
 
 ### Key invariants to preserve when touching entities/validation
 

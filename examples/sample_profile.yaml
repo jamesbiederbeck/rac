@@ -1,0 +1,14 @@
+name: staff-sre
+theme: executive
+page_limit: 2
+
+filters:
+  include_tags: []
+  exclude_tags: []
+
+weights:
+  reliability engineering: 1.5
+  kubernetes: 1.4
+  python: 1.0
+
+query: "Staff-level SRE role focused on reliability, incident response, and Kubernetes"
