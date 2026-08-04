@@ -1,6 +1,6 @@
 ---
 name: ingest-resume
-description: Ingest a resume PDF into this repo's RSM YAML (resume.yaml), merging with any existing content instead of duplicating positions/claims. Use when the user asks to ingest, import, or add a resume PDF to their RSM data, or points at a file in resume_archive/.
+description: Ingest a resume PDF into this repo's RSM YAML (resume.yaml), merging with any existing content instead of duplicating positions/claims. Use when the user asks to ingest, import, or add a resume PDF to their RSM data, or points at a resume PDF file anywhere on disk.
 ---
 
 # Ingest a resume PDF
@@ -13,10 +13,10 @@ no API key needed.
 
 ## Steps
 
-1. **Extract text.** Run `pdftotext -layout <pdf> -` (already used successfully on every PDF
-   in `resume_archive/`; poppler-utils, no Python dependency). If the output is empty or only a
-   few dozen characters, the PDF is scanned/image-only — stop and tell the user OCR isn't
-   supported yet, don't guess from nothing.
+1. **Extract text.** Run `pdftotext -layout <pdf> -` (poppler-utils, no Python dependency) against
+   whatever resume PDF the user pointed at. If the output is empty or only a few dozen characters,
+   the PDF is scanned/image-only — stop and tell the user OCR isn't supported yet, don't guess
+   from nothing.
 
 2. **Structure it.** Read the extracted text and produce a single JSON object matching
    `rac/ingest/extracted.py`'s `ExtractedResume` model:
@@ -55,4 +55,6 @@ no API key needed.
 
 - Never fabricate content. Every Claim's `text` should be the resume's actual wording, not a
   paraphrase — evidenced by rsm_spec.md's Claim/Evidence design (facts over formatting).
-- `resume_archive/` in this repo holds real historical resume PDFs for this exact workflow.
+- Resume PDFs and any extracted JSON contain real personal data (contact info, employment
+  history). Don't write them into a tracked path in this repo — use a scratch/temp location, and
+  never commit a real `resume.yaml` (see `.gitignore`).

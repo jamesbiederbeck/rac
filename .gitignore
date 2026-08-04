@@ -13,3 +13,8 @@ resume.yaml
 # Real build profiles (actual job targeting) — personal, not for the public repo.
 # Generic samples live in examples/, which is tracked.
 /profiles/
+
+# Real resume PDFs / extracted JSON (rac ingest inputs) — personal data, never commit.
+/resume_archive/
+*.pdf
+!examples/*.pdf
