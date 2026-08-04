@@ -5,3 +5,11 @@ __pycache__/
 .pytest_cache/
 build/
 dist/
+
+# Personal resume data — real PII, never commit. Use examples/sample_resume.yaml instead.
+resume.yaml
+*.resume.yaml
+
+# Real build profiles (actual job targeting) — personal, not for the public repo.
+# Generic samples live in examples/, which is tracked.
+/profiles/
