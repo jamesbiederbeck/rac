@@ -14,12 +14,15 @@ dependencies = [
 dev = [
     "pytest>=8.0",
 ]
+pdf = [
+    "weasyprint>=62",
+]
 
 [project.scripts]
 rac = "rac.cli:app"
 
 [tool.setuptools]
-packages = ["rac", "rac.storage"]
+packages = ["rac", "rac.storage", "rac.render"]
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
