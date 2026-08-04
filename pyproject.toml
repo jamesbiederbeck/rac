@@ -2,13 +2,26 @@
 name = "rac"
 version = "0.1.0"
 description = "Resume-as-Code: a declarative resume generation system built on the Resume Semantic Model (RSM)."
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Victor Biederbeck" },
+]
 requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 dependencies = [
     "pydantic>=2.5",
     "pyyaml>=6.0",
     "typer>=0.12",
     "httpx>=0.27",
 ]
+
+[project.urls]
+Repository = "https://github.com/jamesbiederbeck/rac"
 
 [project.optional-dependencies]
 dev = [
