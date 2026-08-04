@@ -22,7 +22,7 @@ pdf = [
 rac = "rac.cli:app"
 
 [tool.setuptools]
-packages = ["rac", "rac.storage", "rac.render"]
+packages = ["rac", "rac.storage", "rac.render", "rac.ingest"]
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]

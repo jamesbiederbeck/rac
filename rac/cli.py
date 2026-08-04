@@ -9,6 +9,14 @@ from pydantic import ValidationError
 
 from rac.embedding import EmbeddingClient
 from rac.graph import ResumeGraph
+from rac.ingest import (
+    ExtractedResume,
+    ExtractionError,
+    OpenAICompatibleExtractor,
+    PdfExtractionError,
+    extract_text,
+    resolve_extracted_resume,
+)
 from rac.model import Visibility
 from rac.profile import apply_profile, load_build_profile
 from rac.render import (
@@ -213,6 +221,101 @@ def render_cmd(
         typer.secho(f"Wrote {output}", fg=typer.colors.GREEN)
     else:
         typer.echo(content)
+
+
+@app.command(name="ingest")
+def ingest_cmd(
+    pdf_path: Path = typer.Argument(..., exists=True, help="Path to a resume PDF"),
+    into: Path = typer.Option(Path("resume.yaml"), "--into", help="Target YAML resume file (created if missing)"),
+    extracted_path: Path | None = typer.Option(
+        None,
+        "--extracted",
+        exists=True,
+        help="Pre-extracted ExtractedResume JSON, skipping the LLM call (used by the ingest-resume skill)",
+    ),
+    apply: bool = typer.Option(
+        False, "--apply", help="Write the merged result to --into (default is a dry-run preview only)"
+    ),
+) -> None:
+    """Ingest a resume PDF into a YAML resume file, merging with any existing content.
+
+    Positions are reused when they match an existing one at the same
+    organization with an overlapping interval and a similar title; Claims
+    are deduped against whatever's already under that Position, first by
+    exact text match, then (if the embedding service is reachable) by
+    similarity, so the same achievement reworded across resume versions
+    doesn't get added twice. Nothing here is silent -- what was added,
+    skipped, or merely flagged as a possible duplicate is always printed.
+    """
+    if extracted_path is not None:
+        try:
+            extracted = ExtractedResume.model_validate_json(extracted_path.read_text())
+        except ValidationError as exc:
+            typer.secho(f"{extracted_path} does not match the ExtractedResume schema:\n{exc}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+    else:
+        try:
+            text = extract_text(pdf_path)
+        except PdfExtractionError as exc:
+            typer.secho(str(exc), fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+        try:
+            extractor = OpenAICompatibleExtractor()
+            extracted = extractor.extract(text)
+        except (ExtractionError, httpx.HTTPError) as exc:
+            typer.secho(f"Extraction failed: {exc}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+
+    adapter = YamlStorageAdapter()
+    existing = adapter.load(into) if into.exists() else None
+
+    try:
+        document, report = resolve_extracted_resume(extracted, existing, embedding_provider=EmbeddingClient())
+    except httpx.HTTPError:
+        document, report = resolve_extracted_resume(extracted, existing, embedding_provider=None)
+        report.notes.insert(0, "Embedding service unreachable; fuzzy Claim dedup was skipped (exact-text-match only).")
+
+    typer.echo(f"Extracted resume for: {extracted.name}")
+    typer.echo(
+        f"Added: {len(report.added_organizations)} organization(s), {len(report.added_positions)} position(s), "
+        f"{len(report.added_claims)} claim(s), {len(report.added_competencies)} competenc(y/ies), "
+        f"{len(report.added_credentials)} credential(s)."
+    )
+
+    if report.skipped_duplicate_claims:
+        typer.echo(f"\nSkipped {len(report.skipped_duplicate_claims)} duplicate claim(s):")
+        for claim_text, matched_id, score in report.skipped_duplicate_claims:
+            preview = claim_text if len(claim_text) <= 70 else claim_text[:67] + "..."
+            typer.echo(f"  {score:.2f}  matches {matched_id:20s} {preview}")
+
+    if report.possible_duplicate_claims:
+        typer.secho(
+            f"\n{len(report.possible_duplicate_claims)} possible duplicate(s) added anyway -- review:",
+            fg=typer.colors.YELLOW,
+        )
+        for claim_text, matched_id, score in report.possible_duplicate_claims:
+            preview = claim_text if len(claim_text) <= 70 else claim_text[:67] + "..."
+            typer.secho(f"  {score:.2f}  similar to {matched_id:20s} {preview}", fg=typer.colors.YELLOW)
+
+    if report.notes:
+        typer.secho("\nNotes:", fg=typer.colors.YELLOW)
+        for note in report.notes:
+            typer.secho(f"  - {note}", fg=typer.colors.YELLOW)
+
+    if not apply:
+        typer.echo(f"\nDry run -- not written. Re-run with --apply to write to {into}.")
+        return
+
+    graph = ResumeGraph.build(document)
+    errors = [i for i in validate(graph) if i.severity == Severity.ERROR]
+    if errors:
+        for issue in errors:
+            typer.secho(str(issue), fg=typer.colors.RED)
+        typer.secho("Merged document has validation errors; not written.", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    adapter.save(document, into)
+    typer.secho(f"\nWrote {into}", fg=typer.colors.GREEN)
 
 
 if __name__ == "__main__":
