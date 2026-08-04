@@ -35,18 +35,20 @@ One endpoint, one field: `rac/embedding.py`'s `EmbeddingClient.embed()` does
 POST {base_url}/vectors   {"text": "..."}   ->   {"vector": [floats], ...}
 ```
 
-`base_url` defaults to `http://chiclets.lan:8081` (the author's own instance — not reachable
-outside that network; point `RAC_EMBEDDING_URL` at your own instance instead), overridable via
-`RAC_EMBEDDING_URL`. Two independent callers reach it through the `EmbeddingProvider` protocol:
+`base_url` has no default — it must be set via `RAC_EMBEDDING_URL` (or passed explicitly);
+`EmbeddingClient()` raises `EmbeddingNotConfiguredError` at construction otherwise. Three
+independent callers reach it through the `EmbeddingProvider` protocol, and all three treat it as
+optional, degrading rather than failing when it's unset or unreachable:
 
 - **`rac/ranking.py`** (`rank_claims_by_query`, cosine similarity, no numpy) — wired into
   `BuildProfile.apply_profile` when a profile has a `query`; used by `rac rank` and `rac render
-  --profile`.
+  --profile` via `rac/cli.py`'s `_apply_profile_with_fallback`, which catches both
+  `EmbeddingNotConfiguredError` and `httpx.HTTPError` and falls back to weight-based ranking with
+  a warning.
 - **`rac/ingest/resolve.py`** — fuzzy title/Claim-text matching during `rac ingest`, so a
-  reworded achievement or a slightly-retitled Position doesn't get merged as a duplicate. Falls
-  back to exact-text-match-only dedup if the service is unreachable (`resolve_extracted_resume`
-  catches `httpx.HTTPError` and retries with `embedding_provider=None`; `rac ingest` prints a note
-  when this happens).
+  reworded achievement or a slightly-retitled Position doesn't get merged as a duplicate. `rac
+  ingest` falls back to exact-text-match-only dedup (`embedding_provider=None`) if the service is
+  unconfigured or unreachable, printing a note either way.
 
 Tests use a fake provider (`tests/conftest.py`) instead of hitting the network — don't add tests
 that require the real service to be reachable.

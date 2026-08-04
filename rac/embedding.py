@@ -4,9 +4,10 @@ free-text prompt (see rac.ranking, rac.profile).
 
 This module knows nothing about the RSM — it is a generic HTTP client for
 the `/vectors` endpoint of an embeddings-proxy service (POST {"text": ...}
--> {"vector": [floats]}). The default target is the author's homelab
-instance; any compatible service can be used by overriding `base_url` or
-the RAC_EMBEDDING_URL environment variable.
+-> {"vector": [floats]}). There is no default target: a service must be
+configured via the RAC_EMBEDDING_URL environment variable or an explicit
+`base_url`, since this is an optional integration with no service that
+ships with `rac` itself (see embedding_proxy_usage.md).
 """
 
 from __future__ import annotations
@@ -16,17 +17,26 @@ from typing import Protocol, Sequence
 
 import httpx
 
-DEFAULT_BASE_URL = "http://chiclets.lan:8081"
-
 
 class EmbeddingProvider(Protocol):
     def embed(self, text: str) -> Sequence[float]:
         """Return the embedding vector for `text`."""
 
 
+class EmbeddingNotConfiguredError(RuntimeError):
+    """Raised when no embedding service is configured (no base_url and no
+    RAC_EMBEDDING_URL). Callers that treat embedding ranking as optional
+    should catch this alongside httpx.HTTPError and fall back gracefully."""
+
+
 class EmbeddingClient:
     def __init__(self, base_url: str | None = None, timeout: float = 5.0) -> None:
-        self.base_url = (base_url or os.environ.get("RAC_EMBEDDING_URL") or DEFAULT_BASE_URL).rstrip("/")
+        resolved = base_url or os.environ.get("RAC_EMBEDDING_URL")
+        if not resolved:
+            raise EmbeddingNotConfiguredError(
+                "No embedding service configured; set RAC_EMBEDDING_URL or pass base_url explicitly."
+            )
+        self.base_url = resolved.rstrip("/")
         self.timeout = timeout
 
     def embed(self, text: str) -> tuple[float, ...]:

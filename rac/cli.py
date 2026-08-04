@@ -7,7 +7,7 @@ import httpx
 import typer
 from pydantic import ValidationError
 
-from rac.embedding import EmbeddingClient
+from rac.embedding import EmbeddingClient, EmbeddingNotConfiguredError
 from rac.graph import ResumeGraph
 from rac.ingest import (
     ExtractedResume,
@@ -17,8 +17,8 @@ from rac.ingest import (
     extract_text,
     resolve_extracted_resume,
 )
-from rac.model import Visibility
-from rac.profile import apply_profile, load_build_profile
+from rac.model import Claim, Visibility
+from rac.profile import BuildProfile, apply_profile, load_build_profile
 from rac.render import (
     PageLimitError,
     build_resume_sections,
@@ -53,6 +53,36 @@ def _require_valid(graph: ResumeGraph, action: str) -> None:
             typer.secho(str(issue), fg=typer.colors.RED)
         typer.secho(f"Resume has validation errors; fix them before {action}.", fg=typer.colors.RED)
         raise typer.Exit(code=1)
+
+
+def _apply_profile_with_fallback(graph: ResumeGraph, profile: BuildProfile) -> list[tuple[Claim, float]]:
+    """apply_profile(), degrading to weight-based ranking (provider=None)
+    when a profile has a `query` but no embedding service is configured or
+    reachable. Embedding-based ranking is an optional enhancement, not a
+    hard requirement -- see embedding_proxy_usage.md -- so neither an unset
+    RAC_EMBEDDING_URL nor a network failure should block rank/render."""
+    provider = None
+    if profile.query:
+        try:
+            provider = EmbeddingClient()
+        except EmbeddingNotConfiguredError:
+            typer.secho(
+                "No embedding service configured (RAC_EMBEDDING_URL unset); "
+                "falling back to weight-based ranking for this profile's query.",
+                fg=typer.colors.YELLOW,
+            )
+
+    try:
+        return apply_profile(graph, profile, provider=provider)
+    except httpx.HTTPError as exc:
+        if provider is None:
+            raise
+        typer.secho(
+            f"Could not reach embedding service at {provider.base_url}: {exc}; "
+            "falling back to weight-based ranking.",
+            fg=typer.colors.YELLOW,
+        )
+        return apply_profile(graph, profile, provider=None)
 
 
 @app.command(name="init")
@@ -115,13 +145,7 @@ def rank_cmd(
     graph = ResumeGraph.build(document)
     _require_valid(graph, "ranking")
 
-    provider = EmbeddingClient() if profile.query else None
-
-    try:
-        ranked = apply_profile(graph, profile, provider=provider)
-    except httpx.HTTPError as exc:
-        typer.secho(f"Could not reach embedding service at {provider.base_url}: {exc}", fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+    ranked = _apply_profile_with_fallback(graph, profile)
 
     if not ranked:
         typer.secho("No claims matched this profile's filters.", fg=typer.colors.YELLOW)
@@ -164,12 +188,7 @@ def render_cmd(
 
     if profile_path is not None:
         profile = load_build_profile(profile_path)
-        provider = EmbeddingClient() if profile.query else None
-        try:
-            ranked = apply_profile(graph, profile, provider=provider)
-        except httpx.HTTPError as exc:
-            typer.secho(f"Could not reach embedding service: {exc}", fg=typer.colors.RED)
-            raise typer.Exit(code=1) from exc
+        ranked = _apply_profile_with_fallback(graph, profile)
         claims = [c for c, _ in ranked]  # already priority-ordered, highest score first
     else:
         claims = list(document.claims)
@@ -270,10 +289,16 @@ def ingest_cmd(
     existing = adapter.load(into) if into.exists() else None
 
     try:
-        document, report = resolve_extracted_resume(extracted, existing, embedding_provider=EmbeddingClient())
-    except httpx.HTTPError:
+        provider = EmbeddingClient()
+    except EmbeddingNotConfiguredError:
         document, report = resolve_extracted_resume(extracted, existing, embedding_provider=None)
-        report.notes.insert(0, "Embedding service unreachable; fuzzy Claim dedup was skipped (exact-text-match only).")
+        report.notes.insert(0, "No embedding service configured (RAC_EMBEDDING_URL unset); fuzzy Claim dedup was skipped (exact-text-match only).")
+    else:
+        try:
+            document, report = resolve_extracted_resume(extracted, existing, embedding_provider=provider)
+        except httpx.HTTPError:
+            document, report = resolve_extracted_resume(extracted, existing, embedding_provider=None)
+            report.notes.insert(0, "Embedding service unreachable; fuzzy Claim dedup was skipped (exact-text-match only).")
 
     typer.echo(f"Extracted resume for: {extracted.name}")
     typer.echo(

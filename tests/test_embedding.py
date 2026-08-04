@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from rac.embedding import DEFAULT_BASE_URL, EmbeddingClient
+from rac.embedding import EmbeddingClient, EmbeddingNotConfiguredError
 
 
 def test_embed_posts_text_and_returns_vector(monkeypatch):
@@ -24,10 +24,10 @@ def test_embed_posts_text_and_returns_vector(monkeypatch):
     assert captured["json"] == {"text": "some claim text"}
 
 
-def test_default_base_url_is_used_when_unset(monkeypatch):
+def test_raises_when_unconfigured(monkeypatch):
     monkeypatch.delenv("RAC_EMBEDDING_URL", raising=False)
-    client = EmbeddingClient()
-    assert client.base_url == DEFAULT_BASE_URL
+    with pytest.raises(EmbeddingNotConfiguredError):
+        EmbeddingClient()
 
 
 def test_base_url_from_env_var(monkeypatch):
