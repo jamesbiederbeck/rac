@@ -1,10 +1,10 @@
 # Embedding proxy usage
 
 `rac` optionally talks to a small external text-embedding HTTP service — a companion project of
-the author's, `embeddings-proxy` (not yet published) — for anything that needs semantic
-similarity: profile-query ranking and fuzzy dedup during ingest. Nothing in `rac` requires it;
-every consumer degrades gracefully (see below) when it's unset or unreachable. Any service
-speaking its `/vectors` contract below works equally well.
+the author's, [`embeddings-proxy`](https://github.com/jamesbiederbeck/embeddings-proxy) — for
+anything that needs semantic similarity: profile-query ranking and fuzzy dedup during ingest.
+Nothing in `rac` requires it; every consumer degrades gracefully (see below) when it's unset or
+unreachable. Any service speaking its `/vectors` contract below works equally well.
 
 ## What it is
 
@@ -17,11 +17,11 @@ the Qdrant/search side.
 ## Running your own instance
 
 `rac` doesn't vendor or require any particular deployment of this — point it at any service that
-implements the `/vectors` contract below. The author's own `embeddings-proxy` (FastAPI + Redis
+implements the `/vectors` contract below. The author's own
+[`embeddings-proxy`](https://github.com/jamesbiederbeck/embeddings-proxy) (FastAPI + Redis
 cache in front of a transformers-inference/OpenAI/llama.cpp backend, with a
-`docker compose up`-able stack) is one such implementation, once published; until then, anything
-speaking the same contract — including a thin wrapper around an OpenAI-compatible embeddings
-endpoint — works as a drop-in.
+`docker compose up`-able stack) is one such implementation; anything speaking the same contract —
+including a thin wrapper around an OpenAI-compatible embeddings endpoint — works as a drop-in.
 
 ```bash
 export RAC_EMBEDDING_URL=http://localhost:8081   # wherever your instance is listening

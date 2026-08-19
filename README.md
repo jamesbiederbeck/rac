@@ -71,7 +71,8 @@ Embedding-based ranking (`query`) talks to an external text-embedding HTTP
 service (see [embedding_proxy_usage.md](embedding_proxy_usage.md) for the
 expected API shape) via `RAC_EMBEDDING_URL`. It's entirely optional — a
 profile without `query` falls back to tag filters and competency weights
-alone, no network call involved. The author's own `embeddings-proxy`
+alone, no network call involved. The author's own
+[`embeddings-proxy`](https://github.com/jamesbiederbeck/embeddings-proxy)
 project is a compatible implementation if you want to run your own.
 
 ### Rendering
