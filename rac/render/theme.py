@@ -43,6 +43,16 @@ _RUNNER_SCRIPT = """
 const { createRequire } = await import("node:module");
 const { readFile } = await import("node:fs/promises");
 
+// Many themes log to stdout (debug prints left in at require-time or inside
+// render()) as a matter of course -- nothing in the JSON Resume theme
+// contract forbids it. Since stdout here is reserved for the rendered HTML
+// (captured whole, not parsed for a delimiter), redirect console output to
+// stderr for the lifetime of this script so a theme's own logging can't
+// corrupt the document it's asked to produce.
+for (const method of ["log", "info", "debug", "warn"]) {
+  console[method] = (...args) => console.error(...args);
+}
+
 const [themeName, resumeJsonPath] = process.argv.slice(1);
 const resume = JSON.parse(await readFile(resumeJsonPath, "utf-8"));
 const require = createRequire(process.cwd() + "/");

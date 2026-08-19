@@ -46,6 +46,34 @@ def test_render_jsonresume_theme_invokes_installed_theme(fake_theme):
     assert html == "<h1>Jamie Rivera</h1>"
 
 
+@pytest.fixture
+def noisy_theme(tmp_path):
+    package_dir = tmp_path / "node_modules" / "jsonresume-theme-noisy"
+    package_dir.mkdir(parents=True)
+    (package_dir / "package.json").write_text('{"name": "jsonresume-theme-noisy", "main": "index.js"}')
+    (package_dir / "index.js").write_text(
+        'console.log("[Theme] loaded");\n'
+        "function render(resume) {\n"
+        '  console.log("rendering", resume.basics.name);\n'
+        '  return "<h1>" + resume.basics.name + "</h1>";\n'
+        "}\n"
+        "module.exports = { render: render };\n"
+    )
+    return tmp_path / "node_modules"
+
+
+@requires_node
+def test_render_jsonresume_theme_ignores_themes_own_console_log(noisy_theme):
+    """A theme that logs to stdout (at require-time or inside render()) is common and not
+    against the JSON Resume theme contract -- rac must not let that corrupt the captured
+    HTML, since stdout here is read whole rather than parsed for a delimiter."""
+    sections = ResumeSections(person=Person(id="p1", name="Jamie Rivera"))
+
+    html = render_jsonresume_theme(sections, "jsonresume-theme-noisy", node_modules=noisy_theme)
+
+    assert html == "<h1>Jamie Rivera</h1>"
+
+
 @requires_node
 def test_render_jsonresume_theme_raises_for_missing_theme(fake_theme):
     sections = ResumeSections(person=Person(id="p1", name="Jamie Rivera"))
