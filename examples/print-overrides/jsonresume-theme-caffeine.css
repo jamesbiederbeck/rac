@@ -25,6 +25,22 @@
  * producing a near-empty first page. Since none of these individual blocks
  * is actually at risk of an awkward mid-block split, turning the rule off
  * is safe here.
+ *
+ * Two more problems only show up once you actually flip through the
+ * resulting pages instead of trusting the page count:
+ *
+ * 1. Section headings (.title, holding an <h3> + the .keyline divider) had
+ *    no break-after protection, so "EDUCATION" can end up the last line on
+ *    a page with its content stranded on the next one -- a heading orphan.
+ * 2. Stacking .left-column full-width (necessary per above) means the
+ *    skills list, which the theme was never designed to render at full
+ *    page width, drags its per-item `.container { padding-top: 20px }`
+ *    out to a whole first page of mostly blank space for a resume with a
+ *    long skills list, pushing Summary/Experience/Education entirely onto
+ *    later pages and leaving the last page nearly empty too. Tightening
+ *    just the skills items' padding (not .container generally, which also
+ *    backs Experience/Education entries where the spacing is doing real
+ *    work) claws back that wasted space without touching those sections.
  */
 
 .page {
@@ -49,4 +65,28 @@
 .container,
 .work-container .item {
   page-break-inside: auto;
+}
+
+.title {
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.skills-container .container {
+  padding-top: 6px;
+}
+
+.skills-container .title {
+  margin-bottom: 0;
+}
+
+.skills-container .keyline {
+  margin: 4px 0 4px;
+}
+
+/* The theme always emits <img src="" alt="profile-pic">; rac's JSON Resume
+   projection never sets a picture, so this is always a broken-image icon,
+   not a blank photo someone chose to omit. */
+.profile-pic {
+  display: none;
 }
