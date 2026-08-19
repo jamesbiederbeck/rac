@@ -55,6 +55,7 @@ rac init resume.yaml --name "Jane Doe"     # create a starter YAML resume
 rac validate resume.yaml                   # validate a resume file against the RSM
 rac rank resume.yaml profile.yaml          # filter + rank Claims per a build profile
 rac render resume.yaml --format markdown|html|web|pdf [--profile profile.yaml] [--output path]
+rac render resume.yaml --format html|pdf --theme jsonresume-theme-NAME [--node-modules path] [--print-css overrides.css] [--pdf-engine weasyprint|chrome]
 rac ingest resume.pdf --into resume.yaml [--extracted extracted.json] [--apply]
 ```
 
@@ -81,6 +82,38 @@ supports `--page-limit N`, which trims the lowest-priority Claims until the
 PDF fits. Regardless of `--profile`, only public-visibility Claims are ever
 rendered — draft/private Claims never leak into shared output.
 
+#### JSON Resume themes
+
+`rac render --format html|pdf --theme jsonresume-theme-NAME` renders through
+any installed [JSON Resume](https://jsonresume.org) theme instead of rac's
+own built-in HTML template. rac projects the RSM into the (lossy) JSON
+Resume schema and shells out to the theme's npm package, so you'll need
+Node.js plus `npm install jsonresume-theme-NAME` (or point `--node-modules`
+at wherever it's installed) — themes are a runtime dependency only, never a
+Python one.
+
+```bash
+npm install jsonresume-theme-caffeine
+rac render resume.yaml --format html --theme jsonresume-theme-caffeine
+```
+
+JSON Resume themes are authored and tested against a browser, and printing
+them through WeasyPrint (rac's default PDF engine) can misrender
+browser-only CSS like floats or percentage heights spanning a page break.
+Two ways to fix that:
+
+- `--pdf-engine chrome` prints through headless Chrome (via a local
+  `npm install puppeteer`) instead of WeasyPrint — the actual engine themes
+  are built against, so it usually needs no further tweaking.
+- `--print-css overrides.css` injects extra CSS after the theme's own, for
+  cases where you'd rather patch WeasyPrint's output than switch engines.
+  See `examples/print-overrides/` for a worked example.
+
+```bash
+npm install puppeteer
+rac render resume.yaml --format pdf --theme jsonresume-theme-caffeine --pdf-engine chrome
+```
+
 ### Ingesting a resume PDF
 
 `rac ingest` turns an existing resume PDF into RSM data and merges it into a
@@ -106,7 +139,8 @@ image-only PDFs aren't supported.
 
 Implemented: the RSM core model, YAML storage, validation, build profiles
 (tag filtering + competency weighting + optional embedding-based ranking),
-Markdown/HTML/web/PDF rendering with page-limit trimming, and PDF ingest
+Markdown/HTML/web/PDF rendering with page-limit trimming, JSON Resume theme
+rendering (with a WeasyPrint or headless-Chrome PDF backend), and PDF ingest
 with merge/dedup.
 
 Not yet implemented (see `project_plan.md`): a Theme system (rendering

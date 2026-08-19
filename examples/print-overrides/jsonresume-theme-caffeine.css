@@ -1,0 +1,52 @@
+/*
+ * Print override for jsonresume-theme-caffeine, for use with
+ * `rac render --format pdf --theme jsonresume-theme-caffeine --print-css`.
+ *
+ * The theme lays out .left-column (About/Skills) and .right-column
+ * (Summary/Experience/Education) as CSS floats side by side. That's fine in
+ * a browser, but WeasyPrint doesn't reflow floats across a page break: once
+ * .left-column runs longer than one page (easy with a full skills list),
+ * .right-column gets pushed entirely after it instead of running alongside
+ * it, producing several near-empty pages. Forcing both columns to stack
+ * (float: none, full width) sidesteps float pagination entirely.
+ *
+ * The theme's own @media print block separately sets `.page { height:
+ * 100%; }`, which WeasyPrint resolves to exactly one page's height (fixed,
+ * not a minimum) -- content beyond that is clipped rather than flowing
+ * onto later pages. Overriding it back to `auto` is what actually lets the
+ * page grow to fit the (now single-column) content.
+ *
+ * The same @media print block also sets `page-break-inside: avoid` on
+ * `.container` (the per-skill and per-work-item wrapper) and
+ * `.work-container .item`. In a normal browser print that just keeps each
+ * short block from splitting across a page; under WeasyPrint, once dozens
+ * of these "avoid" blocks are stacked in a single column, it pushes the
+ * entire run onto the next page rather than breaking between them,
+ * producing a near-empty first page. Since none of these individual blocks
+ * is actually at risk of an awkward mid-block split, turning the rule off
+ * is safe here.
+ */
+
+.page {
+  width: auto;
+  height: auto;
+  min-height: 0;
+  box-shadow: none;
+}
+
+.left-column,
+.right-column {
+  float: none;
+  width: 100%;
+  overflow: visible;
+  margin: 0;
+}
+
+.left-column {
+  margin-bottom: 20px;
+}
+
+.container,
+.work-container .item {
+  page-break-inside: auto;
+}

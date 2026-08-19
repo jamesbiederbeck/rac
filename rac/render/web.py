@@ -1,7 +1,7 @@
 """
 Render a ResumeSections projection to a single self-contained "web" HTML
 document: a fixed sidebar nav plus full-height scrolling sections, styled
-after github.com/jamesbiederbeck/webresume but with the Bootstrap/jQuery/
+after github.com/StartBootstrap/startbootstrap-resume but with the Bootstrap/jQuery/
 Font Awesome/Google Fonts CDN dependencies replaced by inline CSS/JS and
 system fonts, so the output has no external network calls (unlike the
 source site, which pulls those from CDNs and reports to Google Analytics).

@@ -20,11 +20,17 @@ from rac.ingest import (
 from rac.model import Claim, Visibility
 from rac.profile import BuildProfile, apply_profile, load_build_profile
 from rac.render import (
+    ChromePdfError,
     PageLimitError,
+    ThemeRenderError,
     build_resume_sections,
     fit_claims_to_page_limit,
+    html_to_pdf,
+    html_to_pdf_via_chrome,
+    inject_css,
     order_by_importance,
     render_html,
+    render_jsonresume_theme,
     render_markdown,
     render_pdf,
     render_web,
@@ -40,6 +46,11 @@ class RenderFormat(str, Enum):
     HTML = "html"
     WEB = "web"
     PDF = "pdf"
+
+
+class PdfEngine(str, Enum):
+    WEASYPRINT = "weasyprint"
+    CHROME = "chrome"
 
 
 def _require_valid(graph: ResumeGraph, action: str) -> None:
@@ -171,6 +182,32 @@ def render_cmd(
     output: Path | None = typer.Option(
         None, "--output", "-o", help="Write to this path instead of stdout (required for --format pdf)"
     ),
+    theme: str | None = typer.Option(
+        None,
+        "--theme",
+        help="Render with an installed JSON Resume theme package (e.g. jsonresume-theme-elegant) instead of "
+        "rac's built-in template -- requires Node.js and `npm install <theme>`. --format html or pdf only.",
+    ),
+    node_modules: Path | None = typer.Option(
+        None,
+        "--node-modules",
+        help="Directory to resolve --theme from (default: node_modules in the current directory)",
+    ),
+    print_css: Path | None = typer.Option(
+        None,
+        "--print-css",
+        exists=True,
+        help="CSS file injected after --theme's own styles, to override browser-only layout that WeasyPrint "
+        "renders badly (e.g. floats spanning a page break). Only valid with --theme --pdf-engine weasyprint.",
+    ),
+    pdf_engine: PdfEngine = typer.Option(
+        PdfEngine.WEASYPRINT,
+        "--pdf-engine",
+        help="PDF backend for --theme --format pdf: WeasyPrint (default), or headless Chrome via Puppeteer -- "
+        "themes are written and tested against a browser, so `chrome` often renders a theme's layout correctly "
+        "with no --print-css overrides needed, at the cost of requiring `npm install puppeteer`. Only valid "
+        "with --theme.",
+    ),
 ) -> None:
     """Render a resume to Markdown, HTML, web (sidebar-nav HTML), or PDF.
 
@@ -180,6 +217,15 @@ def render_cmd(
     """
     if format == RenderFormat.PDF and output is None:
         typer.secho("--output is required for --format pdf (PDF can't be printed to a terminal).", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    if theme is not None and format not in (RenderFormat.HTML, RenderFormat.PDF):
+        typer.secho("--theme only applies to --format html or pdf.", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    if print_css is not None and theme is None:
+        typer.secho("--print-css only applies alongside --theme.", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    if pdf_engine == PdfEngine.CHROME and theme is None:
+        typer.secho("--pdf-engine chrome only applies alongside --theme.", fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
     document = YamlStorageAdapter().load(resume_path)
@@ -219,7 +265,29 @@ def render_cmd(
     sections = build_resume_sections(graph, claims)
 
     content: str | bytes
-    if format == RenderFormat.MARKDOWN:
+    if theme is not None:
+        try:
+            themed_html = render_jsonresume_theme(sections, theme, node_modules=node_modules)
+        except ThemeRenderError as exc:
+            typer.secho(str(exc), fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+        if print_css is not None:
+            themed_html = inject_css(themed_html, print_css.read_text())
+        if format == RenderFormat.HTML:
+            content = themed_html
+        elif pdf_engine == PdfEngine.CHROME:
+            try:
+                content = html_to_pdf_via_chrome(themed_html, node_modules=node_modules)
+            except ChromePdfError as exc:
+                typer.secho(str(exc), fg=typer.colors.RED)
+                raise typer.Exit(code=1)
+        else:
+            try:
+                content = html_to_pdf(themed_html)
+            except ImportError:
+                typer.secho('PDF rendering requires the "pdf" extra: pip install -e ".[pdf]"', fg=typer.colors.RED)
+                raise typer.Exit(code=1)
+    elif format == RenderFormat.MARKDOWN:
         content = render_markdown(sections)
     elif format == RenderFormat.HTML:
         content = render_html(sections)
