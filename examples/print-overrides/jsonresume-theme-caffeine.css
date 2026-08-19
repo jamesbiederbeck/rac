@@ -26,7 +26,7 @@
  * is actually at risk of an awkward mid-block split, turning the rule off
  * is safe here.
  *
- * Two more problems only show up once you actually flip through the
+ * Three more problems only show up once you actually flip through the
  * resulting pages instead of trusting the page count:
  *
  * 1. Section headings (.title, holding an <h3> + the .keyline divider) had
@@ -41,6 +41,17 @@
  *    just the skills items' padding (not .container generally, which also
  *    backs Experience/Education entries where the spacing is doing real
  *    work) claws back that wasted space without touching those sections.
+ * 3. Even after that, each skill is still one <h3> per row -- a single
+ *    short word like "AWS" occupying the theme's original ~160px sidebar
+ *    width was reasonable, but stretched across the now-full-page-width
+ *    .left-column it's mostly blank space to the right of the text.
+ *    `flex-wrap` reclaims that width by laying skills out left-to-right,
+ *    wrapping into a new row only when a row fills up, cutting the list's
+ *    height roughly 3x. (CSS multi-column -- `column-count` -- looks like
+ *    the more obvious tool here, but Chrome's print path only balances
+ *    column heights correctly when the container has an explicit height;
+ *    left at its natural `height: auto`, everything piles into the first
+ *    column and the rest sit empty. flex-wrap has no such requirement.)
  */
 
 .page {
@@ -72,8 +83,18 @@
   page-break-after: avoid;
 }
 
+.skills-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 24px;
+}
+
 .skills-container .container {
+  flex: 0 0 auto;
+  width: 30%;
   padding-top: 6px;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .skills-container .title {
