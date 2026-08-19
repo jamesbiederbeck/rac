@@ -97,17 +97,37 @@ npm install jsonresume-theme-caffeine
 rac render resume.yaml --format html --theme jsonresume-theme-caffeine
 ```
 
-JSON Resume themes are authored and tested against a browser, and printing
-them through WeasyPrint (rac's default PDF engine) can misrender
-browser-only CSS like floats or percentage heights spanning a page break.
-Two ways to fix that:
+Two separate print problems show up with JSON Resume themes, and
+`--print-css`/`--pdf-engine` address different ones:
 
-- `--pdf-engine chrome` prints through headless Chrome (via a local
-  `npm install puppeteer`) instead of WeasyPrint — the actual engine themes
-  are built against, so it usually needs no further tweaking.
-- `--print-css overrides.css` injects extra CSS after the theme's own, for
-  cases where you'd rather patch WeasyPrint's output than switch engines.
-  See `examples/print-overrides/` for a worked example.
+- **WeasyPrint-specific rendering gaps.** Themes are authored and tested
+  against a browser, and printing them through WeasyPrint (rac's default
+  PDF engine) can misrender browser-only CSS like floats or percentage
+  heights spanning a page break. `--pdf-engine chrome` sidesteps this
+  entirely by printing through headless Chrome (via a local
+  `npm install puppeteer`) instead — the actual engine themes are built
+  against — so it usually needs no further tweaking.
+- **Themes with no print stylesheet at all.** Plenty of themes are designed
+  screen-first and never set `break-inside`/`page-break-inside` on their
+  entries, so *any* print engine (Chrome's own Ctrl+P included, not just
+  WeasyPrint) will split a job entry awkwardly across a page boundary.
+  `examples/print-overrides/generic.css` is a theme-agnostic fix for this:
+  it adds `break-inside: avoid` to list items/rows, `break-after: avoid` to
+  headings, and disables floats for print — the same properties that make
+  `jsonresume-theme-consultant-polished-printable` print cleanly where its
+  sibling `jsonresume-theme-consultant-polished` (identical layout, no
+  print rules) doesn't.
+  `examples/print-overrides/jsonresume-theme-caffeine.css` is a worked
+  example of the theme-specific alternative, for when a theme's own float
+  layout needs more surgical fixes than the generic rules cover.
+
+`--print-css` injects the chosen stylesheet after the theme's own, so its
+rules win the cascade without touching the theme's source:
+
+```bash
+rac render resume.yaml --format html --theme jsonresume-theme-eloquent \
+  --print-css examples/print-overrides/generic.css
+```
 
 ```bash
 npm install puppeteer

@@ -1,0 +1,64 @@
+/*
+ * Generic print override for `rac render --theme jsonresume-theme-NAME
+ * --print-css examples/print-overrides/generic.css`, for themes that ship
+ * no print stylesheet of their own (or one that doesn't actually prevent
+ * awkward page breaks).
+ *
+ * Comparing jsonresume-theme-consultant-polished (prints badly) against its
+ * sibling jsonresume-theme-consultant-polished-printable (prints cleanly)
+ * isolates what actually matters for a JSON Resume theme to paginate well
+ * under a browser's print engine (Chrome's Ctrl+P / print-to-PDF, and
+ * WeasyPrint too, though `--print-css` is more often needed for float-based
+ * themes going through WeasyPrint -- see jsonresume-theme-caffeine.css in
+ * this directory for that case): per-entry `break-inside: avoid` so a job
+ * or education block never splits across a page boundary, `break-after:
+ * avoid` on headings so a section title never lands alone at the bottom of
+ * a page, and no floated multi-column layout, since a float taller than one
+ * page doesn't reflow around a page break in any engine -- it just gets cut
+ * or displaced.
+ *
+ * A generic override can't replicate the printable variant's precision: it
+ * knows the theme's actual DOM (each job entry is a specific styled-
+ * components class), so it protects exactly the right elements. This file
+ * has no theme-specific knowledge, so it applies the same rules to whatever
+ * *generic* HTML structure JSON Resume themes tend to share -- list items,
+ * headings, table rows, images -- and disables floats outright for print.
+ * That covers most of the benefit for most themes, but a theme that lays
+ * out each resume entry as a <div> with no <li>/<h2-6> wrapper (rather than
+ * the common list-of-entries pattern) won't get per-entry break protection
+ * from this file; inspect the theme's rendered HTML and add its specific
+ * entry-wrapper selector if it still breaks awkwardly.
+ */
+
+@media print {
+  * {
+    float: none !important;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  li, tr, blockquote, pre, figure {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  p, li {
+    orphans: 3;
+    widows: 3;
+  }
+
+  img {
+    max-width: 100% !important;
+  }
+
+  a {
+    /* Most themes turn links into colored, underlined text on screen --
+       fine on screen, but printing colored-and-underlined out-of-context
+       hrefs on paper is just noise since the URL itself isn't visible. */
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+}
